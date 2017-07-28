@@ -1,10 +1,12 @@
 package main
 
 import (
+	"fmt"
 	"github.com/alexflint/go-arg"
 	"github.com/zephyr-im/krb5-go"
 	"log"
 	"os"
+	"time"
 )
 
 // Usage: krb5perf.pl -k <keytab> -c <client princ> -s <server princ> -i <iterations> -p <parallelism> -h
@@ -46,20 +48,22 @@ func main() {
 		log.Fatal(err)
 	}
 
-	credential, err := ctx.GetInitialCredentialWithKeyTab(keytab, client, service)
+	doAS_REQ(ctx, keytab, client, service)
+}
+
+func doAS_REQ(ctx *krb5.Context, keytab *krb5.KeyTab, client *krb5.Principal, service *krb5.Principal) error {
+	status := "SUCCESS"
+	defer timeTrack(time.Now(), "AS_REQ "+status)
+
+	_, err := ctx.GetInitialCredentialWithKeyTab(keytab, client, service)
 	if err != nil {
-		log.Fatal(err)
+		status = fmt.Sprintf("FAIL (%s)", err)
 	}
 
-	log.Printf("Got credential\n")
-	log.Printf("\tClient = %v\n", credential.Client)
-	log.Printf("\tServer = %v\n", credential.Server)
-	log.Printf("\tAuthTime = %v\n", credential.AuthTime())
-	log.Printf("\tStartTime = %v\n", credential.StartTime())
-	log.Printf("\tEndTime = %v\n", credential.EndTime())
-	log.Printf("\tKeyBlock = %v\n", credential.KeyBlock)
-	log.Printf("\n")
-	log.Printf("raw credential = %v\n", credential)
-	log.Printf("\n")
-	log.Printf("\n")
+	return nil
+}
+
+func timeTrack(start time.Time, name string) {
+	elapsed := time.Since(start)
+	log.Printf("%s %s", elapsed, name)
 }
