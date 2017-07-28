@@ -53,13 +53,14 @@ func main() {
 
 func doAS_REQ(ctx *krb5.Context, keytab *krb5.KeyTab, client *krb5.Principal, service *krb5.Principal) error {
 	status := "SUCCESS"
-	defer timeTrack(time.Now(), "AS_REQ "+status)
 
+	start := time.Now()
 	_, err := ctx.GetInitialCredentialWithKeyTab(keytab, client, service)
 	if err != nil {
 		status = fmt.Sprintf("FAIL (%s)", err)
 	}
 
+	timeTrack(start, "AS_REQ "+status)
 	return nil
 }
 
