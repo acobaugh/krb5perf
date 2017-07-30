@@ -11,11 +11,11 @@ import (
 
 // Usage: krb5perf.pl -k <keytab> -c <client princ> -s <server princ> -i <iterations> -p <parallelism> -h
 type Args struct {
-	KeytabFile  string `arg:"env:KTNAME,-k"`
-	Client      string `arg:"-c"`
-	Service     string `arg:"-s"`
-	Iterations  int    `arg:"-i"`
-	Parallelism int    `arg:"-p"`
+	Keytab      string `arg:"env:KTNAME,-k,required"`
+	Client      string `arg:"-c,required"`
+	Service     string `arg:"-s,required"`
+	Iterations  int    `arg:"-i,required"`
+	Parallelism int    `arg:"-p,required"`
 }
 
 func (Args) Version() string {
@@ -30,41 +30,83 @@ func main() {
 	if err != nil {
 		log.Fatal(err)
 	}
-	defer ctx.Free()
 
-	keytab, err := ctx.OpenKeyTab(args.KeytabFile)
+	keytab, err := ctx.OpenKeyTab(args.Keytab)
 	if err != nil {
 		log.Fatal(err)
 	}
 	defer keytab.Close()
 
-	client, err := ctx.ParseName(args.Client)
-	if err != nil {
-		log.Fatal(err)
+	authrequestc := make(chan authrequest, args.Iterations)
+	authresultc := make(chan authresult, args.Iterations)
+
+	var authresults = []authresult{}
+
+	// create workers
+	for i := 1; i <= args.Parallelism; i++ {
+		go authworker(i, authrequestc, authresultc)
 	}
 
-	service, err := ctx.ParseName(args.Service)
-	if err != nil {
-		log.Fatal(err)
+	// submit jobs
+	for i := 1; i <= args.Iterations; i++ {
+		authrequestc <- authrequest{keytab: keytab, client: args.Client, service: args.Service}
 	}
 
-	doAS_REQ(ctx, keytab, client, service)
+	// collect results
+	for i := 1; i <= args.Iterations; i++ {
+		authresults = append(authresults, <-authresultc)
+	}
 }
 
-func doAS_REQ(ctx *krb5.Context, keytab *krb5.KeyTab, client *krb5.Principal, service *krb5.Principal) error {
-	status := "SUCCESS"
-
-	start := time.Now()
-	_, err := ctx.GetInitialCredentialWithKeyTab(keytab, client, service)
-	if err != nil {
-		status = fmt.Sprintf("FAIL (%s)", err)
-	}
-
-	timeTrack(start, "AS_REQ "+status)
-	return nil
+type authrequest struct {
+	keytab  *krb5.KeyTab
+	client  string
+	service string
 }
 
-func timeTrack(start time.Time, name string) {
-	elapsed := time.Since(start)
-	log.Printf("%s %s", elapsed, name)
+type authresult struct {
+	success bool
+	err     error
+	elapsed time.Duration
+}
+
+func authworker(w int, authrequestc <-chan authrequest, authresultc chan<- authresult) {
+	for a := range authrequestc {
+		success := true
+		status := "SUCCESS"
+
+		// set up our context
+		ctx, err := krb5.NewContext()
+		if err != nil {
+			log.Fatal(err)
+		}
+
+		client, err := ctx.ParseName(a.client)
+		if err != nil {
+			log.Fatal(err)
+		}
+
+		service, err := ctx.ParseName(a.service)
+		if err != nil {
+			log.Fatal(err)
+		}
+
+		start := time.Now()
+		_, err = ctx.GetInitialCredentialWithKeyTab(a.keytab, client, service)
+		elapsed := time.Since(start)
+
+		ctx.Free()
+
+		if err != nil {
+			status = fmt.Sprintf("FAIL (%s)", err)
+			success = false
+		}
+		log.Printf("[%d] %s AS_REQ %s", w, elapsed, status)
+
+		authresultc <- authresult{
+			success: success,
+			err:     err,
+			elapsed: elapsed,
+		}
+	}
 }
