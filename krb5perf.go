@@ -48,6 +48,7 @@ func main() {
 	}
 
 	// submit jobs
+	start := time.Now()
 	for i := 1; i <= args.Iterations; i++ {
 		authrequestc <- authrequest{keytab: keytab, client: args.Client, service: args.Service}
 	}
@@ -56,6 +57,19 @@ func main() {
 	for i := 1; i <= args.Iterations; i++ {
 		authresults = append(authresults, <-authresultc)
 	}
+	elapsed := time.Since(start)
+
+	fmt.Printf("\n===========\n"+
+		"Total time elapsed: %s\n"+
+		"Iterations: %d, Parallelism: %d\n",
+		//	"SUCCESS: %d\n" +
+		//	"FAIL: %d\n" +
+		//	"SUCCESS time: avg: %d, max: %d, min: %d, 99pct: %d, 95pct %d\n" +
+		//	"FAIL time: avg: %d, max: %d, min: %d, 99pct: %d, 95pct %d\n" +
+		//	"\nFAIL reasons:\n%s",
+		elapsed,
+		args.Iterations, args.Parallelism)
+
 }
 
 type authrequest struct {
@@ -108,5 +122,6 @@ func authworker(w int, authrequestc <-chan authrequest, authresultc chan<- authr
 			err:     err,
 			elapsed: elapsed,
 		}
+
 	}
 }
