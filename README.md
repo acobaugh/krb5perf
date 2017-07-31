@@ -72,3 +72,9 @@ FAIL: avg: 3.271549ms, max: 3.889256ms, min: 2.93091ms, 99pct: 3.887286ms, 95pct
 Errors:
 10      Server not found in Kerberos database
 ```
+
+## TODO
+* Hide the request output unless user asks to see it, otherwise display a running percent complete 
+* Add support for user-defined delay, and random delay to simulate more realistic workloads
+* Allow password auth
+* Allow reading users/passwords in from a file, and allow to sort them and use them in order when generating requests
