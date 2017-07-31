@@ -87,13 +87,13 @@ func main() {
 
 	fmt.Printf("\n===========\n"+
 		"Total elapsed time: %s\n"+
-		"Average req/s: %d\n"+
+		"Average req/s: %.2f\n"+
 		"Parallelism: %d, SUCCESS/FAIL: %d/%d\n"+
 		"SUCCESS: avg: %s, max: %s, min: %s, 99pct: %s, 95pct: %s\n"+
 		"FAIL: avg: %s, max: %s, min: %s, 99pct: %s, 95pct: %s\n"+
 		"Errors:\n%s",
 		elapsed,
-		int(elapsed)/args.Iterations,
+		float64(args.Iterations)/elapsed.Seconds(),
 		args.Parallelism, len(s), len(f),
 		s.dstat(stats.Mean), s.dstat(stats.Max), s.dstat(stats.Min), s.dpct(stats.Percentile, 99), s.dpct(stats.Percentile, 95),
 		f.dstat(stats.Mean), f.dstat(stats.Max), f.dstat(stats.Min), f.dpct(stats.Percentile, 99), f.dpct(stats.Percentile, 95),
