@@ -68,14 +68,14 @@ func main() {
 	// collect results
 	var s durations
 	var f durations
-	var errors = make(map[error]int)
+	var errors = make(map[string]int)
 	for i := 1; i <= args.Iterations; i++ {
 		r := <-authresultc
 		if r.success {
 			s = append(s, r.elapsed)
 		} else {
 			f = append(f, r.elapsed)
-			errors[r.err]++
+			errors[r.err.Error()]++
 		}
 	}
 	elapsed := time.Since(start)
