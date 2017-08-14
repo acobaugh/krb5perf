@@ -3,16 +3,17 @@ package main
 import (
 	"fmt"
 	"github.com/alexflint/go-arg"
+	"github.com/cobaugh/krb5-go"
 	"github.com/montanaflynn/stats"
-	"github.com/zephyr-im/krb5-go"
 	"log"
 	"os"
 	"time"
 )
 
 type Args struct {
-	Keytab      string `arg:"env:KTNAME,-k,required"`
+	Keytab      string `arg:"env:KTNAME,-k"`
 	Client      string `arg:"-c,required"`
+	Password    string `arg:"-P"`
 	Service     string `arg:"-s,required"`
 	Iterations  int    `arg:"-i,required"`
 	Parallelism int    `arg:"-p,required"`
@@ -21,9 +22,10 @@ type Args struct {
 type durations []time.Duration
 
 type authrequest struct {
-	keytab  *krb5.KeyTab
-	client  string
-	service string
+	keytab   *krb5.KeyTab
+	password string
+	client   string
+	service  string
 }
 
 type authresult struct {
@@ -45,11 +47,19 @@ func main() {
 		log.Fatal(err)
 	}
 
-	keytab, err := ctx.OpenKeyTab(args.Keytab)
-	if err != nil {
-		log.Fatal(err)
+	var keytab *krb5.KeyTab
+	if args.Keytab != "" {
+		keytab, err := ctx.OpenKeyTab(args.Keytab)
+		if err != nil {
+			log.Fatal(err)
+		}
+		defer keytab.Close()
+		log.Printf("Using keytab at '%s' to authenticate", args.Keytab)
+	} else if args.Password != "" {
+		log.Print("Using password to authenticate")
+	} else {
+		log.Fatal("One of either --password or --keytab must be specified")
 	}
-	defer keytab.Close()
 
 	authrequestc := make(chan authrequest, args.Iterations)
 	authresultc := make(chan authresult, args.Iterations)
@@ -62,7 +72,7 @@ func main() {
 	// submit jobs
 	start := time.Now()
 	for i := 1; i <= args.Iterations; i++ {
-		authrequestc <- authrequest{keytab: keytab, client: args.Client, service: args.Service}
+		authrequestc <- authrequest{keytab: keytab, password: args.Password, client: args.Client, service: args.Service}
 	}
 
 	// collect results
@@ -152,7 +162,11 @@ func authworker(w int, authrequestc <-chan authrequest, authresultc chan<- authr
 		}
 
 		start := time.Now()
-		_, err = ctx.GetInitialCredentialWithKeyTab(a.keytab, client, service)
+		if a.password != "" {
+			_, err = ctx.GetInitialCredentialWithPassword(a.password, client, service)
+		} else {
+			_, err = ctx.GetInitialCredentialWithKeyTab(a.keytab, client, service)
+		}
 		elapsed := time.Since(start)
 
 		ctx.Free()
