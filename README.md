@@ -4,8 +4,6 @@ Kerberos v5 "performance" tool.
 `$ go get github.com/cobaugh/krb5perf`
 
 ## Build
-Note: go-krb5 does not appear to work on FreeBSD 11.x at the moment. Building should work fine on Linux as long as your `krb5-devel` or equivalent package providing krb5.h is installed.
-
 ```
 $ go get -d ./...
 $ go build
