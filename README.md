@@ -1,3 +1,5 @@
+[![GoDoc](https://godoc.org/github.com/cobaugh/krb5perf?status.svg)](https://godoc.org/github.com/cobaugh/krb5perf)
+
 Kerberos v5 "performance" tool.
 
 ## Installation
