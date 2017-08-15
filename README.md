@@ -79,3 +79,4 @@ Errors:
 - [x] Allow password auth
 - [x] Allow reading users/passwords in from a file, and allow to sort them and use them in order when generating requests
 - [ ] Allow a mode where the user specifies a target requests/second, and attempt to reach that target? radperf does this somehow...
+- [ ] Allow specifying test run time instead of # of iterations
