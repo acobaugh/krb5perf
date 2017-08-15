@@ -1,11 +1,11 @@
+[![GoDoc](https://godoc.org/github.com/cobaugh/krb5perf?status.svg)](https://godoc.org/github.com/cobaugh/krb5perf)
+
 Kerberos v5 "performance" tool.
 
 ## Installation
 `$ go get github.com/cobaugh/krb5perf`
 
 ## Build
-Note: go-krb5 does not appear to work on FreeBSD 11.x at the moment. Building should work fine on Linux as long as your `krb5-devel` or equivalent package providing krb5.h is installed.
-
 ```
 $ go get -d ./...
 $ go build
@@ -74,7 +74,7 @@ Errors:
 ```
 
 ## TODO
-* Hide the request output unless user asks to see it, otherwise display a running percent complete 
-* Add support for user-defined delay, and random delay to simulate more realistic workloads
-* Allow password auth
-* Allow reading users/passwords in from a file, and allow to sort them and use them in order when generating requests
+- [ ] Hide the request output unless user asks to see it, otherwise display a running percent complete 
+- [ ] Add support for user-defined delay, and random delay to simulate more realistic workloads
+- [x] Allow password auth
+- [ ] Allow reading users/passwords in from a file, and allow to sort them and use them in order when generating requests
