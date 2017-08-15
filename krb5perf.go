@@ -1,3 +1,4 @@
+// krb5perf is a tool to perform performance benchmarking and stress testing of Kerberos v5 KDC AS_REQ functions
 package main
 
 import (
@@ -13,6 +14,7 @@ import (
 	"time"
 )
 
+// arguments
 type Args struct {
 	Keytab      string `arg:"env:KTNAME,-k"`
 	Client      string `arg:"-c"`
@@ -23,13 +25,13 @@ type Args struct {
 	Parallelism int    `arg:"-p,required"`
 }
 
+// durations is a slice of time.Durations
 type durations []time.Duration
 
 // an authentication request
 type authrequest struct {
-	keytab   *krb5.KeyTab
-	pwclient pwclient
-	service  string
+	client  client
+	service string
 }
 
 // an authentication result
@@ -39,9 +41,11 @@ type authresult struct {
 	elapsed time.Duration
 }
 
-type pwclient struct {
+//
+type client struct {
 	client   string
 	password string
+	keytab   *krb5.KeyTab
 }
 
 func (Args) Version() string {
@@ -58,8 +62,7 @@ func main() {
 		log.Fatal(err)
 	}
 
-	var keytab *krb5.KeyTab
-	var pwclients *ring.Ring
+	var clientr *ring.Ring
 
 	// check for keytab, password, or csv file arguments
 	// create ring of pwclients as necessary
@@ -69,16 +72,17 @@ func main() {
 			log.Fatal(err)
 		}
 		defer keytab.Close()
+		clientr = ringFromSlice([]client{client{client: args.Client, password: "", keytab: keytab}})
 		log.Printf("Using keytab at '%s' to authenticate", args.Keytab)
 	} else if args.Password != "" {
-		pwclients = ringFromSlice([]pwclient{pwclient{client: args.Client, password: args.Password}})
+		clientr = ringFromSlice([]client{client{client: args.Client, password: args.Password, keytab: nil}})
 		log.Print("Using password to authenticate")
 	} else if args.Csv != "" {
-		csvclients, err := pwclientsFromCsvFile(args.Csv)
+		csvclients, err := clientsFromCsvFile(args.Csv)
 		if err != nil {
 			log.Fatal(err)
 		}
-		pwclients = ringFromSlice(csvclients)
+		clientr = ringFromSlice(csvclients)
 	} else {
 		log.Fatal("One of either --password or --keytab must be specified")
 	}
@@ -92,11 +96,11 @@ func main() {
 	}
 
 	// submit jobs
-	p := pwclients.Value
+	c := clientr.Value
 	start := time.Now()
 	for i := 1; i <= args.Iterations; i++ {
-		authrequestc <- authrequest{keytab: keytab, pwclient: p.(pwclient), service: args.Service}
-		p = pwclients.Next()
+		authrequestc <- authrequest{client: c.(client), service: args.Service}
+		c = clientr.Next()
 	}
 
 	// collect results
@@ -136,9 +140,9 @@ func main() {
 
 }
 
-// read all records from the given CSV file, and return them as a slice of pwclient
-func pwclientsFromCsvFile(filename string) ([]pwclient, error) {
-	var pwclients []pwclient
+// read all records from the given CSV file, and return them as a slice of client
+func clientsFromCsvFile(filename string) ([]client, error) {
+	var clients []client
 
 	file, err := os.Open(filename)
 	defer file.Close()
@@ -150,16 +154,16 @@ func pwclientsFromCsvFile(filename string) ([]pwclient, error) {
 	for {
 		r, err := reader.Read()
 		if err == io.EOF {
-			return pwclients, nil
+			return clients, nil
 		} else if err != nil {
 			return nil, err
 		}
-		pwclients = append(pwclients, pwclient{client: r[0], password: r[1]})
+		clients = append(clients, client{client: r[0], password: r[1], keytab: nil})
 	}
 }
 
 // takes a slice and returns a ring
-func ringFromSlice(s []pwclient) *ring.Ring {
+func ringFromSlice(s []client) *ring.Ring {
 	r := ring.New(len(s))
 	for i := 0; i < r.Len(); i++ {
 		r.Value = s[i]
@@ -210,7 +214,7 @@ func authworker(w int, authrequestc <-chan authrequest, authresultc chan<- authr
 			log.Fatal(err)
 		}
 
-		client, err := ctx.ParseName(a.pwclient.client)
+		client, err := ctx.ParseName(a.client.client)
 		if err != nil {
 			log.Fatal(err)
 		}
@@ -221,10 +225,10 @@ func authworker(w int, authrequestc <-chan authrequest, authresultc chan<- authr
 		}
 
 		start := time.Now()
-		if a.pwclient.password != "" {
-			_, err = ctx.GetInitialCredentialWithPassword(a.pwclient.password, client, service)
+		if a.client.password != "" {
+			_, err = ctx.GetInitialCredentialWithPassword(a.client.password, client, service)
 		} else {
-			_, err = ctx.GetInitialCredentialWithKeyTab(a.keytab, client, service)
+			_, err = ctx.GetInitialCredentialWithKeyTab(a.client.keytab, client, service)
 		}
 		elapsed := time.Since(start)
 
@@ -234,7 +238,7 @@ func authworker(w int, authrequestc <-chan authrequest, authresultc chan<- authr
 			status = fmt.Sprintf("FAIL (%s)", err)
 			success = false
 		}
-		log.Printf("[%d] %s AS_REQ (%s) %s", w, elapsed, a.pwclient.client, status)
+		log.Printf("[%d] %s AS_REQ (%s) %s", w, elapsed, a.client.client, status)
 
 		authresultc <- authresult{
 			success: success,
