@@ -164,6 +164,7 @@ func clientsFromCsvFile(filename string) ([]authclient, error) {
 	}
 
 	reader := csv.NewReader(file)
+	i := 1
 	for {
 		r, err := reader.Read()
 		if err == io.EOF {
@@ -171,7 +172,11 @@ func clientsFromCsvFile(filename string) ([]authclient, error) {
 		} else if err != nil {
 			return nil, err
 		}
+		if len(r) != 2 {
+			return nil, fmt.Errorf("Expected 2 fields in CSV file at line %d: '%v'", i, r)
+		}
 		clients = append(clients, authclient{principal: r[0], password: r[1], keytab: nil})
+		i++
 	}
 }
 
