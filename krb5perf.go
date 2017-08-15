@@ -30,7 +30,7 @@ type durations []time.Duration
 
 // an authentication request
 type authrequest struct {
-	client  client
+	client  authclient
 	service string
 }
 
@@ -42,10 +42,10 @@ type authresult struct {
 }
 
 //
-type client struct {
-	client   string
-	password string
-	keytab   *krb5.KeyTab
+type authclient struct {
+	principal string
+	password  string
+	keytab    *krb5.KeyTab
 }
 
 func (Args) Version() string {
@@ -62,27 +62,26 @@ func main() {
 		log.Fatal(err)
 	}
 
-	var clientr *ring.Ring
+	var authclientr *ring.Ring
 
 	// check for keytab, password, or csv file arguments
-	// create ring of pwclients as necessary
 	if args.Keytab != "" {
 		keytab, err := ctx.OpenKeyTab(args.Keytab)
 		if err != nil {
 			log.Fatal(err)
 		}
 		defer keytab.Close()
-		clientr = ringFromSlice([]client{client{client: args.Client, password: "", keytab: keytab}})
+		authclientr = ringFromSlice([]authclient{authclient{principal: args.Client, password: "", keytab: keytab}})
 		log.Printf("Using keytab at '%s' to authenticate", args.Keytab)
 	} else if args.Password != "" {
-		clientr = ringFromSlice([]client{client{client: args.Client, password: args.Password, keytab: nil}})
+		authclientr = ringFromSlice([]authclient{authclient{principal: args.Client, password: args.Password, keytab: nil}})
 		log.Print("Using password to authenticate")
 	} else if args.Csv != "" {
 		csvclients, err := clientsFromCsvFile(args.Csv)
 		if err != nil {
 			log.Fatal(err)
 		}
-		clientr = ringFromSlice(csvclients)
+		authclientr = ringFromSlice(csvclients)
 	} else {
 		log.Fatal("One of either --password or --keytab must be specified")
 	}
@@ -96,11 +95,11 @@ func main() {
 	}
 
 	// submit jobs
-	c := clientr.Value
 	start := time.Now()
 	for i := 1; i <= args.Iterations; i++ {
-		authrequestc <- authrequest{client: c.(client), service: args.Service}
-		c = clientr.Next()
+		c := authclientr.Value
+		authrequestc <- authrequest{client: c.(authclient), service: args.Service}
+		authclientr = authclientr.Next()
 	}
 
 	// collect results
@@ -141,8 +140,8 @@ func main() {
 }
 
 // read all records from the given CSV file, and return them as a slice of client
-func clientsFromCsvFile(filename string) ([]client, error) {
-	var clients []client
+func clientsFromCsvFile(filename string) ([]authclient, error) {
+	var clients []authclient
 
 	file, err := os.Open(filename)
 	defer file.Close()
@@ -158,12 +157,12 @@ func clientsFromCsvFile(filename string) ([]client, error) {
 		} else if err != nil {
 			return nil, err
 		}
-		clients = append(clients, client{client: r[0], password: r[1], keytab: nil})
+		clients = append(clients, authclient{principal: r[0], password: r[1], keytab: nil})
 	}
 }
 
 // takes a slice and returns a ring
-func ringFromSlice(s []client) *ring.Ring {
+func ringFromSlice(s []authclient) *ring.Ring {
 	r := ring.New(len(s))
 	for i := 0; i < r.Len(); i++ {
 		r.Value = s[i]
@@ -214,7 +213,7 @@ func authworker(w int, authrequestc <-chan authrequest, authresultc chan<- authr
 			log.Fatal(err)
 		}
 
-		client, err := ctx.ParseName(a.client.client)
+		client, err := ctx.ParseName(a.client.principal)
 		if err != nil {
 			log.Fatal(err)
 		}
@@ -238,7 +237,7 @@ func authworker(w int, authrequestc <-chan authrequest, authresultc chan<- authr
 			status = fmt.Sprintf("FAIL (%s)", err)
 			success = false
 		}
-		log.Printf("[%d] %s AS_REQ (%s) %s", w, elapsed, a.client.client, status)
+		log.Printf("[%d] %s AS_REQ (%s) %s", w, elapsed, a.client.principal, status)
 
 		authresultc <- authresult{
 			success: success,
