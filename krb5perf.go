@@ -11,6 +11,7 @@ import (
 	"io"
 	"log"
 	"os"
+	"runtime/pprof"
 	"time"
 )
 
@@ -23,6 +24,7 @@ type Args struct {
 	Service     string `arg:"-s,required"`
 	Iterations  int    `arg:"-i,required"`
 	Parallelism int    `arg:"-p,required"`
+	Profile     string `arg:"help:Writes Go pprof output to specified file"`
 }
 
 // durations is a slice of time.Durations
@@ -56,6 +58,15 @@ func main() {
 	var args Args
 	arg.MustParse(&args)
 
+	if args.Profile != "" {
+		profile, err := os.Create(args.Profile)
+		if err != nil {
+			log.Fatal(err)
+		}
+		pprof.StartCPUProfile(profile)
+		defer pprof.StopCPUProfile()
+	}
+
 	// create a shared context
 	ctx, err := krb5.NewContext()
 	if err != nil {
@@ -88,6 +99,9 @@ func main() {
 
 	authrequestc := make(chan authrequest, args.Iterations)
 	authresultc := make(chan authresult, args.Iterations)
+
+	// profiling
+	// /profileing
 
 	// create workers
 	for i := 1; i <= args.Parallelism; i++ {
