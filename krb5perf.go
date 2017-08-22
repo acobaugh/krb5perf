@@ -8,6 +8,7 @@ import (
 	"github.com/alexflint/go-arg"
 	"github.com/cobaugh/krb5-go"
 	"github.com/montanaflynn/stats"
+	"gopkg.in/cheggaaa/pb.v1"
 	"io"
 	"log"
 	"os"
@@ -33,8 +34,8 @@ type durations []time.Duration
 
 // an authentication request
 type authrequest struct {
-	client  authclient
-	args    Args
+	client authclient
+	args   Args
 }
 
 // an authentication result
@@ -101,8 +102,12 @@ func main() {
 	authrequestc := make(chan authrequest, args.Iterations)
 	authresultc := make(chan authresult, args.Iterations)
 
-	// profiling
-	// /profileing
+	bar := pb.New(args.Iterations)
+	bar.Format("[=> ]")
+	bar.ShowSpeed = true
+	if args.Quiet {
+		bar.Start()
+	}
 
 	// create workers
 	for i := 1; i <= args.Parallelism; i++ {
@@ -123,6 +128,7 @@ func main() {
 	var errors = make(map[string]int)
 	for i := 1; i <= args.Iterations; i++ {
 		r := <-authresultc
+		bar.Increment()
 		if r.success {
 			s = append(s, r.elapsed)
 		} else {
@@ -131,6 +137,8 @@ func main() {
 		}
 	}
 	elapsed := time.Since(start)
+
+	bar.Finish()
 
 	var error_report string
 	for e, i := range errors {
@@ -257,7 +265,7 @@ func authworker(w int, authrequestc <-chan authrequest, authresultc chan<- authr
 			status = fmt.Sprintf("FAIL (%s)", err)
 			success = false
 		}
-		if (!a.args.Quiet) {
+		if !a.args.Quiet {
 			log.Printf("[%d] %s AS_REQ (%s) %s", w, elapsed, a.client.principal, status)
 		}
 
