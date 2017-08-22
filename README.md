@@ -74,7 +74,8 @@ Errors:
 ```
 
 ## TODO
-- [/] Hide the request output unless user asks to see it, otherwise display a running percent complete 
+- [x] Hide the request output unless user asks to see it
+- [x] display a running percent complete when -q is selected
 - [ ] Add support for user-defined delay, and random delay to simulate more realistic workloads
 - [x] Allow password auth
 - [x] Allow reading users/passwords in from a file, and allow to sort them and use them in order when generating requests
