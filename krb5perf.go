@@ -25,6 +25,7 @@ type Args struct {
 	Iterations  int    `arg:"-i,required"`
 	Parallelism int    `arg:"-p,required"`
 	Profile     string `arg:"help:Writes Go pprof output to specified file"`
+	Quiet       bool   `arg:"-q,help:Suppress output and only provide summary"`
 }
 
 // durations is a slice of time.Durations
@@ -33,7 +34,7 @@ type durations []time.Duration
 // an authentication request
 type authrequest struct {
 	client  authclient
-	service string
+	args    Args
 }
 
 // an authentication result
@@ -112,7 +113,7 @@ func main() {
 	start := time.Now()
 	for i := 1; i <= args.Iterations; i++ {
 		c := authclientr.Value
-		authrequestc <- authrequest{client: c.(authclient), service: args.Service}
+		authrequestc <- authrequest{client: c.(authclient), args: args}
 		authclientr = authclientr.Next()
 	}
 
@@ -237,7 +238,7 @@ func authworker(w int, authrequestc <-chan authrequest, authresultc chan<- authr
 			log.Fatal(err)
 		}
 
-		service, err := ctx.ParseName(a.service)
+		service, err := ctx.ParseName(a.args.Service)
 		if err != nil {
 			log.Fatal(err)
 		}
@@ -256,7 +257,9 @@ func authworker(w int, authrequestc <-chan authrequest, authresultc chan<- authr
 			status = fmt.Sprintf("FAIL (%s)", err)
 			success = false
 		}
-		log.Printf("[%d] %s AS_REQ (%s) %s", w, elapsed, a.client.principal, status)
+		if (!a.args.Quiet) {
+			log.Printf("[%d] %s AS_REQ (%s) %s", w, elapsed, a.client.principal, status)
+		}
 
 		authresultc <- authresult{
 			success: success,
