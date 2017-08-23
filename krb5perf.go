@@ -27,6 +27,7 @@ type Args struct {
 	Parallelism int    `arg:"-p,required"`
 	Profile     string `arg:"help:Writes Go pprof output to specified file"`
 	Quiet       bool   `arg:"-q,help:Suppress output and only provide summary"`
+	Verbose     bool   `arg:"-V,help:Show each request as they complete"`
 }
 
 // durations is a slice of time.Durations
@@ -85,10 +86,14 @@ func main() {
 		}
 		defer keytab.Close()
 		authclientr = ringFromSlice([]authclient{authclient{principal: args.Client, password: "", keytab: keytab}})
-		log.Printf("Using keytab at '%s' to authenticate", args.Keytab)
+		if args.Verbose {
+			log.Printf("Using keytab at '%s' to authenticate", args.Keytab)
+		}
 	} else if args.Password != "" {
 		authclientr = ringFromSlice([]authclient{authclient{principal: args.Client, password: args.Password, keytab: nil}})
-		log.Print("Using password to authenticate")
+		if args.Verbose {
+			log.Print("Using password to authenticate")
+		}
 	} else if args.Csv != "" {
 		csvclients, err := clientsFromCsvFile(args.Csv)
 		if err != nil {
@@ -105,7 +110,7 @@ func main() {
 	bar := pb.New(args.Iterations)
 	bar.Format("[=> ]")
 	bar.ShowSpeed = true
-	if args.Quiet {
+	if !args.Quiet && !args.Verbose {
 		bar.Start()
 	}
 
@@ -128,7 +133,7 @@ func main() {
 	var errors = make(map[string]int)
 	for i := 1; i <= args.Iterations; i++ {
 		r := <-authresultc
-		if args.Quiet {
+		if !args.Quiet && !args.Verbose {
 			bar.Increment()
 		}
 		if r.success {
@@ -140,7 +145,7 @@ func main() {
 	}
 	elapsed := time.Since(start)
 
-	if args.Quiet {
+	if !args.Quiet && !args.Verbose {
 		bar.Finish()
 	}
 
@@ -269,7 +274,7 @@ func authworker(w int, authrequestc <-chan authrequest, authresultc chan<- authr
 			status = fmt.Sprintf("FAIL (%s)", err)
 			success = false
 		}
-		if !a.args.Quiet {
+		if a.args.Verbose {
 			log.Printf("[%d] %s AS_REQ (%s) %s", w, elapsed, a.client.principal, status)
 		}
 
