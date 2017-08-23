@@ -128,7 +128,9 @@ func main() {
 	var errors = make(map[string]int)
 	for i := 1; i <= args.Iterations; i++ {
 		r := <-authresultc
-		bar.Increment()
+		if args.Quiet {
+			bar.Increment()
+		}
 		if r.success {
 			s = append(s, r.elapsed)
 		} else {
@@ -138,7 +140,9 @@ func main() {
 	}
 	elapsed := time.Since(start)
 
-	bar.Finish()
+	if args.Quiet {
+		bar.Finish()
+	}
 
 	var error_report string
 	for e, i := range errors {
