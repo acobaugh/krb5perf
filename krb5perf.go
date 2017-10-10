@@ -25,7 +25,8 @@ type Args struct {
 	Service     string `arg:"-s,required"`
 	Iterations  int    `arg:"-i,required"`
 	Parallelism int    `arg:"-p,required"`
-	Profile     string `arg:"help:Writes Go pprof output to specified file"`
+	Cpuprofile  string `arg:"help:Writes Go CPU profile to specified file"`
+	Memprofile  string `arg:"help:Writes GO Memory profile to specified file"`
 	Quiet       bool   `arg:"-q,help:Suppress output and only provide summary"`
 	Verbose     bool   `arg:"-V,help:Show each request as they complete"`
 }
@@ -61,17 +62,17 @@ func main() {
 	var args Args
 	arg.MustParse(&args)
 
-	if args.Profile != "" {
-		profile, err := os.Create(args.Profile)
+	if args.Cpuprofile != "" {
+		cpuprofile, err := os.Create(args.Cpuprofile)
 		if err != nil {
 			log.Fatal(err)
 		}
-		pprof.StartCPUProfile(profile)
+		pprof.StartCPUProfile(cpuprofile)
 		defer pprof.StopCPUProfile()
 	}
-
 	// create a shared context
 	ctx, err := krb5.NewContext()
+	defer ctx.Free()
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -104,8 +105,11 @@ func main() {
 		log.Fatal("One of either --password or --keytab must be specified")
 	}
 
+	// preallocate the request and result channels, and success/failure slices
 	authrequestc := make(chan authrequest, args.Iterations)
 	authresultc := make(chan authresult, args.Iterations)
+	s := make(durations, args.Iterations+1)
+	f := make(durations, 0, args.Iterations+1)
 
 	bar := pb.New(args.Iterations)
 	bar.Format("[=> ]")
@@ -128,8 +132,6 @@ func main() {
 	}
 
 	// collect results
-	var s durations
-	var f durations
 	var errors = make(map[string]int)
 	for i := 1; i <= args.Iterations; i++ {
 		r := <-authresultc
@@ -137,9 +139,9 @@ func main() {
 			bar.Increment()
 		}
 		if r.success {
-			s = append(s, r.elapsed)
+			s[i] = r.elapsed
 		} else {
-			f = append(f, r.elapsed)
+			f[i] = r.elapsed
 			errors[r.err.Error()]++
 		}
 	}
@@ -168,6 +170,14 @@ func main() {
 		f.dstat(stats.Mean), f.dstat(stats.Max), f.dstat(stats.Min), f.dpct(stats.Percentile, 99), f.dpct(stats.Percentile, 95),
 		error_report,
 	)
+
+	if args.Memprofile != "" {
+		memprofile, err := os.Create(args.Memprofile)
+		if err != nil {
+			log.Fatal(err)
+		}
+		pprof.WriteHeapProfile(memprofile)
+	}
 
 }
 
@@ -240,12 +250,13 @@ func (d durations) dpct(f func(stats.Float64Data, float64) (float64, error), p f
 
 // worker function
 func authworker(w int, authrequestc <-chan authrequest, authresultc chan<- authresult) {
+	// set up our context
+	ctx, err := krb5.NewContext()
+	defer ctx.Free()
 	for a := range authrequestc {
 		success := true
 		status := "SUCCESS"
 
-		// set up our context
-		ctx, err := krb5.NewContext()
 		if err != nil {
 			log.Fatal(err)
 		}
@@ -267,8 +278,6 @@ func authworker(w int, authrequestc <-chan authrequest, authresultc chan<- authr
 			_, err = ctx.GetInitialCredentialWithKeyTab(a.client.keytab, client, service)
 		}
 		elapsed := time.Since(start)
-
-		ctx.Free()
 
 		if err != nil {
 			status = fmt.Sprintf("FAIL (%s)", err)
