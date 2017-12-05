@@ -6,7 +6,7 @@ import (
 	"encoding/csv"
 	"fmt"
 	"github.com/alexflint/go-arg"
-	"github.com/cobaugh/krb5-go"
+	"github.com/acobaugh/krb5-go"
 	"github.com/montanaflynn/stats"
 	"gopkg.in/cheggaaa/pb.v1"
 	"io"
@@ -108,8 +108,8 @@ func main() {
 	// preallocate the request and result channels, and success/failure slices
 	authrequestc := make(chan authrequest, args.Iterations)
 	authresultc := make(chan authresult, args.Iterations)
-	s := make(durations, args.Iterations+1)
-	f := make(durations, 0, args.Iterations+1)
+	s := make(durations, args.Iterations)
+	f := make(durations, 0, args.Iterations)
 
 	bar := pb.New(args.Iterations)
 	bar.Format("[=> ]")
@@ -132,7 +132,7 @@ func main() {
 
 	// collect results
 	var errors = make(map[string]int)
-	for i := 1; i <= args.Iterations; i++ {
+	for i := 0; i < args.Iterations; i++ {
 		r := <-authresultc
 		if !args.Quiet && !args.Verbose {
 			bar.Increment()
@@ -249,9 +249,6 @@ func (d durations) dpct(f func(stats.Float64Data, float64) (float64, error), p f
 
 // worker function
 func authworker(w int, authrequestc <-chan authrequest, authresultc chan<- authresult) {
-	// set up our context
-	ctx, err := krb5.NewContext()
-	defer ctx.Free()
 	for a := range authrequestc {
 		ctx, err := krb5.NewContext()
 		success := true
