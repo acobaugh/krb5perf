@@ -249,6 +249,9 @@ func (d durations) dpct(f func(stats.Float64Data, float64) (float64, error), p f
 
 // worker function
 func authworker(w int, authrequestc <-chan authrequest, authresultc chan<- authresult) {
+	// set up our context
+	ctx, err := krb5.NewContext()
+	defer ctx.Free()
 	for a := range authrequestc {
 		ctx, err := krb5.NewContext()
 		success := true
