@@ -5,8 +5,8 @@ import (
 	"container/ring"
 	"encoding/csv"
 	"fmt"
-	"github.com/alexflint/go-arg"
 	"github.com/acobaugh/krb5-go"
+	"github.com/alexflint/go-arg"
 	"github.com/montanaflynn/stats"
 	"gopkg.in/cheggaaa/pb.v1"
 	"io"
@@ -155,13 +155,14 @@ func main() {
 		error_report += fmt.Sprintf("%d\t%s\n", i, e)
 	}
 
-	fmt.Printf("\n===========\n"+
-		"Total elapsed time: %s\n"+
+	fmt.Printf("Start time: %s\n"+
+		"Elapsed time: %s\n"+
 		"Average req/s: %.2f\n"+
 		"Parallelism: %d, SUCCESS/FAIL: %d/%d\n"+
 		"SUCCESS: avg: %s, max: %s, min: %s, 99pct: %s, 95pct: %s\n"+
 		"FAIL: avg: %s, max: %s, min: %s, 99pct: %s, 95pct: %s\n"+
 		"Errors:\n%s",
+		start,
 		elapsed,
 		float64(args.Iterations)/elapsed.Seconds(),
 		args.Parallelism, len(s), len(f),
