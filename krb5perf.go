@@ -109,7 +109,7 @@ func main() {
 	authrequestc := make(chan authrequest, args.Iterations)
 	authresultc := make(chan authresult, args.Iterations)
 	s := make(durations, args.Iterations)
-	f := make(durations, 0, args.Iterations)
+	f := make(durations, args.Iterations)
 
 	bar := pb.New(args.Iterations)
 	bar.Format("[=> ]")
