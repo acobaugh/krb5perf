@@ -132,6 +132,8 @@ func main() {
 
 	// collect results
 	var errors = make(map[string]int)
+	successCount := 0
+	failureCount := 0
 	for i := 0; i < args.Iterations; i++ {
 		r := <-authresultc
 		if !args.Quiet && !args.Verbose {
@@ -139,8 +141,10 @@ func main() {
 		}
 		if r.success {
 			s[i] = r.elapsed
+			successCount++
 		} else {
 			f[i] = r.elapsed
+			failureCount++
 			errors[r.err.Error()]++
 		}
 	}
@@ -165,7 +169,7 @@ func main() {
 		start,
 		elapsed,
 		float64(args.Iterations)/elapsed.Seconds(),
-		args.Parallelism, len(s), len(f),
+		args.Parallelism, successCount, failureCount,
 		s.dstat(stats.Mean), s.dstat(stats.Max), s.dstat(stats.Min), s.dpct(stats.Percentile, 99), s.dpct(stats.Percentile, 95),
 		f.dstat(stats.Mean), f.dstat(stats.Max), f.dstat(stats.Min), f.dpct(stats.Percentile, 99), f.dpct(stats.Percentile, 95),
 		error_report,
