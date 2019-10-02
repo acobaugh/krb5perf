@@ -5,22 +5,23 @@ import (
 	"container/ring"
 	"encoding/csv"
 	"fmt"
-	"github.com/acobaugh/krb5-go"
-	"github.com/alexflint/go-arg"
-	"github.com/montanaflynn/stats"
-	"gopkg.in/cheggaaa/pb.v1"
 	"io"
 	"log"
 	"os"
 	"runtime/pprof"
 	"time"
+
+	"github.com/acobaugh/krb5-go"
+	"github.com/alexflint/go-arg"
+	"github.com/montanaflynn/stats"
+	"gopkg.in/cheggaaa/pb.v1"
 )
 
 // arguments
 type Args struct {
 	Keytab      string `arg:"env:KTNAME,-k"`
 	Client      string `arg:"-c"`
-	Csv         string `arg:"-C,help:CSV file containing records of the form client\,password"`
+	Csv         string `arg:"-C,help:CSV file containing records of the form client comma password"`
 	Password    string `arg:"-P"`
 	Service     string `arg:"-s,required"`
 	Iterations  int    `arg:"-i,required"`
